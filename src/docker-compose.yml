@@ -1,0 +1,24 @@
+services:
+  backend:
+    build: ./backend
+    container_name: research-chatbot-backend
+    ports:
+      - "8000:8000"
+    networks:
+      - chatbot-network
+
+  frontend:
+    build: ./frontend
+    container_name: research-chatbot-frontend
+    ports:
+      - "80:80"
+    environment:
+      - BACKEND_URL=http://backend:8000
+    depends_on:
+      - backend
+    networks:
+      - chatbot-network
+
+networks:
+  chatbot-network:
+    driver: bridge
