@@ -6,6 +6,28 @@ services:
       - "8000:8000"
     env_file:
       - ../.env
+    environment:
+      - CHROMA_DB_PATH=/app/chroma_db
+    volumes:
+      - ../chroma_db:/app/chroma_db
+    networks:
+      - chatbot-network
+
+  # One-shot index builder (in-container alternative to `uv run ingest_papers.py`).
+  # Both write to the same ../chroma_db dir the backend reads. Run with:
+  #   docker compose -f src/docker-compose.yml --profile tools run --rm ingest
+  ingest:
+    build: ./backend
+    profiles: ["tools"]
+    env_file:
+      - ../.env
+    environment:
+      - CHROMA_DB_PATH=/repo/chroma_db
+    volumes:
+      - ../:/repo
+      - ../chroma_db:/repo/chroma_db
+    working_dir: /repo
+    command: ["python", "ingest_papers.py", "--papers-dir", "/repo/research_papers"]
     networks:
       - chatbot-network
 

@@ -2,3 +2,7 @@ fastapi
 uvicorn[standard]
 litellm
 python-dotenv
+pypdf
+langchain-text-splitters
+chromadb
+sentence-transformers
