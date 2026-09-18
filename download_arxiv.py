@@ -9,11 +9,28 @@ import xml.etree.ElementTree as ElementTree
 
 
 API_URL = "https://export.arxiv.org/api/query"
+# arXiv API etiquette: identify the tool and give a way to contact us.
+USER_AGENT = "research-chatbot/1.0 (mailto:you@example.com)"
+# arXiv asks clients to make no more than one request every 3 seconds. Sending
+# faster is rate-limited, and export.arxiv.org surfaces that block as
+# "HTTP 406 Not Acceptable" rather than a 429.
+MIN_REQUEST_INTERVAL = 3.0
 SEARCH_QUERY = "(ti:LLM OR abs:LLM) AND cat:cs.*"
 MAX_DOCUMENTS = 5
 DEFAULT_PAGE_SIZE = 5
 DEFAULT_DELAY = 3.0
 ATOM_NAMESPACE = "http://www.w3.org/2005/Atom"
+
+_last_request_at = 0.0
+
+
+def _throttle() -> None:
+    """Block until at least MIN_REQUEST_INTERVAL has passed since the last call."""
+    global _last_request_at
+    wait = MIN_REQUEST_INTERVAL - (time.monotonic() - _last_request_at)
+    if wait > 0:
+        time.sleep(wait)
+    _last_request_at = time.monotonic()
 
 
 def slugify(title: str) -> str:
@@ -22,17 +39,21 @@ def slugify(title: str) -> str:
     return title[:120] or "arxiv_paper"
 
 
-def fetch(url: str, retries: int = 3) -> bytes:
+def fetch(url: str, retries: int = 5) -> bytes:
+    last_error: Exception | None = None
     for attempt in range(retries):
+        # Space out every outbound request (including retries) so we never trip
+        # arXiv's rate limiter, which is what produced the original 406s.
+        _throttle()
         try:
-            request = Request(url, headers={"User-Agent": "research-chatbot/1.0"})
+            request = Request(url, headers={"User-Agent": USER_AGENT})
             with urlopen(request, timeout=60) as response:
                 return response.read()
         except (HTTPError, URLError) as exc:
+            last_error = exc
             if attempt == retries - 1:
-                raise RuntimeError(f"Could not download {url}: {exc}") from exc
-            time.sleep(2 ** attempt)
-    raise RuntimeError(f"Could not download {url}")
+                break
+    raise RuntimeError(f"Could not download {url}: {last_error}") from last_error
 
 
 def search_page(query: str, start: int, page_size: int) -> list[tuple[str, str, str]]:
