@@ -1,32 +1,18 @@
-# /// script
-# requires-python = ">=3.11"
-# dependencies = [
-#     "pypdf",
-#     "langchain-text-splitters",
-#     "sentence-transformers",
-#     "chromadb",
-# ]
-# ///
 """Chunk the downloaded arXiv PDFs and store embeddings in ChromaDB.
 
-Run on the host with uv (no system pip required):
+Runs inside the dedicated ingest image (its own Dockerfile). The image copies
+this script and the shared ``rag.py`` into its working directory, so the index
+is built with the exact embedding method the backend queries with. Build the
+index into the shared volume with:
 
-    uv run ingest_papers.py
-    uv run ingest_papers.py --papers-dir ./research_papers --rebuild
-
-The chunking and embedding logic lives in src/backend/rag.py so the running
-backend queries the index with the identical method used to build it.
+    docker compose -f src/docker-compose.yml --profile tools run --rm ingest
 """
 
 import argparse
-import sys
 from pathlib import Path
 
-BACKEND_DIR = Path(__file__).resolve().parent / "src" / "backend"
-sys.path.insert(0, str(BACKEND_DIR))
-
-import rag  # noqa: E402
-from pypdf import PdfReader  # noqa: E402
+import rag
+from pypdf import PdfReader
 
 
 def paper_id_from_path(path: Path) -> str:

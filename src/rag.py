@@ -1,21 +1,24 @@
 """Shared RAG core.
 
-This single module is the source of truth for the chunking parameters, the
-embedding model, and the ChromaDB layout. Both the root ``ingest_papers.py``
-script and the FastAPI backend import it, which guarantees the index is built
-and queried with the *exact same* embedding method.
+This module is the single source of truth for the embedding model and the
+ChromaDB layout, so the index is built and queried with the *exact same*
+embedding method. The FastAPI backend imports only the query path
+(``retrieve``); the separate ``ingest`` image additionally uses
+``build_splitter`` and the chunking constants to create the index.
 """
 
 from __future__ import annotations
 
 import os
 from functools import lru_cache
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import chromadb
 from chromadb.api.types import Documents, EmbeddingFunction, Embeddings
-from langchain_text_splitters import CharacterTextSplitter
 from sentence_transformers import SentenceTransformer
+
+if TYPE_CHECKING:  # pragma: no cover
+    from langchain_text_splitters import CharacterTextSplitter
 
 EMBEDDING_MODEL = os.getenv("RAG_EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 CHUNK_SIZE = 500
@@ -68,7 +71,13 @@ def get_embedding_function() -> SentenceTransformerEmbeddingFunction:
     return SentenceTransformerEmbeddingFunction()
 
 
-def build_splitter() -> CharacterTextSplitter:
+def build_splitter() -> "CharacterTextSplitter":
+    """Fixed 500-char chunks with 20% overlap.
+
+    langchain is imported lazily so the query-only backend does not need it.
+    """
+    from langchain_text_splitters import CharacterTextSplitter
+
     return CharacterTextSplitter(
         chunk_size=CHUNK_SIZE,
         chunk_overlap=CHUNK_OVERLAP,

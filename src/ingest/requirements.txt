@@ -1,0 +1,6 @@
+# Dependencies for building the RAG index (chunking + PDF extraction + embed).
+# torch is installed from the CPU wheel index in the Dockerfile.
+pypdf
+langchain-text-splitters
+chromadb
+sentence-transformers
